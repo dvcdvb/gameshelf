@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gameshelf-db
+    environment:
+      POSTGRES_DB: gameshelf
+      POSTGRES_USER: gameshelf
+      POSTGRES_PASSWORD: gameshelf
+    ports:
+      - "5432:5432"
+    volumes:
+      - gameshelf-data:/var/lib/postgresql/data
+
+volumes:
+  gameshelf-data:

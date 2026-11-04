@@ -1,0 +1,6 @@
+# Profil zum Sichtbarmachen der SQL-Abfragen (Nachweise für T7 und T11).
+# Start: ./mvnw spring-boot:run -Dspring-boot.run.profiles=sqllog
+logging:
+  level:
+    org.hibernate.SQL: debug              # jede SQL-Abfrage
+    org.hibernate.orm.jdbc.bind: trace    # die gebundenen Parameterwerte
