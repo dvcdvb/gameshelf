@@ -1,0 +1,14 @@
+# 1. Zugriff: nicht im Cache -> SQL-Abfrage -> Ergebnis wird gespeichert
+10:50:24.671 TRACE CacheInterceptor : No cache entry for key '[1, 13, 10]' in cache(s) [topSpiele]
+10:50:24.676 DEBUG JdbcTemplate     : Executing prepared SQL statement [SELECT v.spiel_id, ... FROM v_beendeter_eintrag v JOIN genre g ... ]
+10:50:24.709 TRACE CacheInterceptor : Creating cache entry for key '[1, 13, 10]' in cache(s) [topSpiele]
+
+# 2. Zugriff: Cache-Treffer, KEINE SQL-Abfrage
+10:50:24.803 TRACE CacheInterceptor : Cache entry for key '[1, 13, 10]' found in cache(s) [topSpiele]
+
+# (POST neue Bewertung -> Cache wird nach dem Commit geleert)
+
+# 3. Zugriff nach der Änderung: wieder nicht im Cache -> neue SQL-Abfrage -> aktuelles Ergebnis
+10:50:24.924 TRACE CacheInterceptor : No cache entry for key '[1, 13, 10]' in cache(s) [topSpiele]
+10:50:24.924 DEBUG JdbcTemplate     : Executing prepared SQL statement [SELECT v.spiel_id, ... ]
+10:50:24.951 TRACE CacheInterceptor : Creating cache entry for key '[1, 13, 10]' in cache(s) [topSpiele]

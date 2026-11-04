@@ -1,0 +1,6 @@
+# Profil zum Vorführen des Caches (T12).
+# Start: ./mvnw spring-boot:run -Dspring-boot.run.profiles=cachelog
+logging:
+  level:
+    org.springframework.cache: trace                  # "No cache entry for key ..." / "Cache entry for key ... found"
+    org.springframework.jdbc.core.JdbcTemplate: debug # zeigt, wann die Auswertung wirklich SQL ausführt

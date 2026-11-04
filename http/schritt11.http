@@ -1,0 +1,72 @@
+### =====================================================================
+### GameShelf – Schritt 11: Cache der Top-Spiele (T12)
+### Anwendung mit Cache-Log starten:
+###   ./mvnw spring-boot:run -Dspring-boot.run.profiles=cachelog
+### und nach jedem Aufruf ins Log schauen.
+### =====================================================================
+
+@base = http://localhost:8080/api
+
+### Vorbereitung: Genre, Spiel, zwei Spieler, eine Bewertung
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "Cache {{$timestamp}}" }
+
+> {% client.global.set("genreId", response.body.id); %}
+
+###
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Cache-Spiel {{$timestamp}}", "genreId": {{genreId}} }
+
+> {% client.global.set("spielId", response.body.id); %}
+
+###
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "cache-a-{{$timestamp}}" }
+
+> {% client.global.set("spielerA", response.body.id); %}
+
+###
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "cache-b-{{$timestamp}}" }
+
+> {% client.global.set("spielerB", response.body.id); %}
+
+###
+POST {{base}}/spieler/{{spielerA}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielId}}, "status": "GESPIELT", "rating": 8 }
+
+### 1. ERSTER ZUGRIFF -> Log: "No cache entry for key", danach "Executing prepared SQL statement"
+GET {{base}}/auswertungen/top-spiele?genreId={{genreId}}
+
+> {% client.test("Ø 8", () => client.assert(response.body[0].durchschnittsRating === 8)); %}
+
+### 2. WIEDERHOLTER ZUGRIFF -> Log: "Cache entry for key ... found", KEIN SQL
+GET {{base}}/auswertungen/top-spiele?genreId={{genreId}}
+
+> {% client.test("Ø 8 (Cache)", () => client.assert(response.body[0].durchschnittsRating === 8)); %}
+
+### 3. RELEVANTE ÄNDERUNG: zweite Bewertung (10) -> Cache wird nach dem Commit geleert
+POST {{base}}/spieler/{{spielerB}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielId}}, "status": "GESPIELT", "rating": 10 }
+
+### 4. ZUGRIFF NACH ÄNDERUNG -> Log: "No cache entry", SQL; Ergebnis sofort aktuell: Ø 9, 2 Bewertungen
+GET {{base}}/auswertungen/top-spiele?genreId={{genreId}}
+
+> {%
+    client.test("aktuell nach Änderung", () => {
+        client.assert(response.body[0].durchschnittsRating === 9, "Ø " + response.body[0].durchschnittsRating);
+        client.assert(response.body[0].anzahlBewertungen === 2);
+    });
+%}
