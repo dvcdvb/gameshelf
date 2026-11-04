@@ -1,0 +1,136 @@
+SET
+
+=================== UMGEBUNG ===================
+                                            version                                             
+------------------------------------------------------------------------------------------------
+ PostgreSQL 17.11 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+
+         name         | setting | unit 
+----------------------+---------+------
+ effective_cache_size | 524288  | 8kB
+ random_page_cost     | 4       | 
+ shared_buffers       | 16384   | 8kB
+ work_mem             | 4096    | kB
+
+=================== DATENMENGE ===================
+ eintraege_total | davon_gespielt | treffer_im_zeitraum | tabellengroesse 
+-----------------+----------------+---------------------+-----------------
+          158557 |          72015 |                3535 | 15 MB
+
+CREATE FUNCTION
+DROP INDEX
+ANALYZE
+
+=================== VORHER: Plan (Quartal) ===================
+                                                                                                        QUERY PLAN                                                                                                        
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=5422.49..5425.03 rows=1016 width=44) (actual time=16.479..16.480 rows=3 loops=1)
+   Sort Key: ((date_trunc('month'::text, (e.abgeschlossen_am)::timestamp with time zone))::date)
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=2043
+   ->  HashAggregate  (cost=5348.88..5371.74 rows=1016 width=44) (actual time=16.459..16.466 rows=3 loops=1)
+         Group Key: (date_trunc('month'::text, (e.abgeschlossen_am)::timestamp with time zone))::date
+         Batches: 1  Memory Usage: 73kB
+         Buffers: shared hit=2043
+         ->  Hash Join  (cost=196.50..5339.42 rows=1262 width=10) (actual time=1.165..15.996 rows=3535 loops=1)
+               Hash Cond: (e.spiel_id = s.id)
+               Buffers: shared hit=2043
+               ->  Seq Scan on eintrag e  (cost=0.00..5130.14 rows=1262 width=18) (actual time=0.008..13.489 rows=3535 loops=1)
+                     Filter: (((status)::text = ANY ('{GESPIELT,ABGEBROCHEN}'::text[])) AND (abgeschlossen_am >= '2026-01-01'::date) AND (abgeschlossen_am < '2026-04-01'::date) AND ((status)::text = 'GESPIELT'::text))
+                     Rows Removed by Filter: 155022
+                     Buffers: shared hit=1959
+               ->  Hash  (cost=134.00..134.00 rows=5000 width=8) (actual time=1.118..1.118 rows=5001 loops=1)
+                     Buckets: 8192  Batches: 1  Memory Usage: 260kB
+                     Buffers: shared hit=84
+                     ->  Seq Scan on spiel s  (cost=0.00..134.00 rows=5000 width=8) (actual time=0.002..0.573 rows=5001 loops=1)
+                           Buffers: shared hit=84
+ Planning:
+   Buffers: shared hit=164
+ Planning Time: 0.896 ms
+ Execution Time: 16.600 ms
+
+=================== VORHER: Messung (3 Warmläufe, 10 Messungen) ===================
+     abfrage     | messungen | min_ms | median_ms | max_ms |                                         alle_ms                                         
+-----------------+-----------+--------+-----------+--------+-----------------------------------------------------------------------------------------
+ Quartal         |        10 | 15.092 |    15.946 | 16.693 | 16.693 | 15.673 | 15.092 | 16.434 | 15.998 | 15.893 | 16.619 | 15.614 | 16.013 | 15.823
+ ganzer Zeitraum |        10 | 42.664 |    44.749 | 47.243 | 43.246 | 42.664 | 42.992 | 45.957 | 45.408 | 44.554 | 43.013 | 44.944 | 47.243 | 46.875
+
+CREATE INDEX
+ANALYZE
+
+=================== NACHHER: Plan (Quartal) ===================
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=2415.88..2418.45 rows=1027 width=44) (actual time=4.608..4.609 rows=3 loops=1)
+   Sort Key: ((date_trunc('month'::text, (e.abgeschlossen_am)::timestamp with time zone))::date)
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1722 read=5
+   ->  HashAggregate  (cost=2341.41..2364.51 rows=1027 width=44) (actual time=4.588..4.593 rows=3 loops=1)
+         Group Key: (date_trunc('month'::text, (e.abgeschlossen_am)::timestamp with time zone))::date
+         Batches: 1  Memory Usage: 73kB
+         Buffers: shared hit=1722 read=5
+         ->  Hash Join  (cost=230.46..2331.81 rows=1279 width=10) (actual time=1.376..4.138 rows=3535 loops=1)
+               Hash Cond: (e.spiel_id = s.id)
+               Buffers: shared hit=1722 read=5
+               ->  Bitmap Heap Scan on eintrag e  (cost=33.96..2122.36 rows=1279 width=18) (actual time=0.418..1.968 rows=3535 loops=1)
+                     Recheck Cond: ((abgeschlossen_am >= '2026-01-01'::date) AND (abgeschlossen_am < '2026-04-01'::date) AND ((status)::text = 'GESPIELT'::text))
+                     Heap Blocks: exact=1638
+                     Buffers: shared hit=1638 read=5
+                     ->  Bitmap Index Scan on ix_eintrag_gespielt_abschluss  (cost=0.00..33.64 rows=2135 width=0) (actual time=0.272..0.272 rows=3535 loops=1)
+                           Index Cond: ((abgeschlossen_am >= '2026-01-01'::date) AND (abgeschlossen_am < '2026-04-01'::date))
+                           Buffers: shared read=5
+               ->  Hash  (cost=134.00..134.00 rows=5000 width=8) (actual time=0.932..0.932 rows=5001 loops=1)
+                     Buckets: 8192  Batches: 1  Memory Usage: 260kB
+                     Buffers: shared hit=84
+                     ->  Seq Scan on spiel s  (cost=0.00..134.00 rows=5000 width=8) (actual time=0.004..0.470 rows=5001 loops=1)
+                           Buffers: shared hit=84
+ Planning:
+   Buffers: shared hit=40 read=1
+ Planning Time: 0.388 ms
+ Execution Time: 4.714 ms
+
+=================== NACHHER: Messung (3 Warmläufe, 10 Messungen) ===================
+     abfrage     | messungen | min_ms | median_ms | max_ms |                                         alle_ms                                         
+-----------------+-----------+--------+-----------+--------+-----------------------------------------------------------------------------------------
+ Quartal         |        10 |  2.965 |     3.022 |  3.515 | 2.989 | 3.021 | 3.033 | 2.965 | 3.011 | 3.022 | 3.502 | 3.515 | 3.016 | 3.495
+ ganzer Zeitraum |        10 | 34.891 |    37.399 | 39.976 | 39.404 | 34.919 | 34.891 | 37.144 | 36.126 | 34.987 | 37.654 | 37.903 | 39.582 | 39.976
+
+
+=================== NACHHER: Plan (ganzer Zeitraum, Gegenprobe) ===================
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=4303.60..4310.51 rows=2762 width=44) (actual time=42.558..42.564 rows=94 loops=1)
+   Sort Key: ((date_trunc('month'::text, (e.abgeschlossen_am)::timestamp with time zone))::date)
+   Sort Method: quicksort  Memory: 28kB
+   Buffers: shared hit=2112
+   ->  HashAggregate  (cost=4083.59..4145.73 rows=2762 width=44) (actual time=42.497..42.532 rows=94 loops=1)
+         Group Key: (date_trunc('month'::text, (e.abgeschlossen_am)::timestamp with time zone))::date
+         Batches: 1  Memory Usage: 177kB
+         Buffers: shared hit=2112
+         ->  Hash Join  (cost=803.59..3889.43 rows=25888 width=10) (actual time=2.893..34.360 rows=72013 loops=1)
+               Hash Cond: (e.spiel_id = s.id)
+               Buffers: shared hit=2112
+               ->  Bitmap Heap Scan on eintrag e  (cost=607.09..3430.75 rows=25888 width=18) (actual time=1.906..10.617 rows=72013 loops=1)
+                     Recheck Cond: ((abgeschlossen_am >= '2019-01-01'::date) AND (abgeschlossen_am < '2027-01-01'::date) AND ((status)::text = 'GESPIELT'::text))
+                     Heap Blocks: exact=1959
+                     Buffers: shared hit=2028
+                     ->  Bitmap Index Scan on ix_eintrag_gespielt_abschluss  (cost=0.00..600.62 rows=43233 width=0) (actual time=1.733..1.733 rows=72013 loops=1)
+                           Index Cond: ((abgeschlossen_am >= '2019-01-01'::date) AND (abgeschlossen_am < '2027-01-01'::date))
+                           Buffers: shared hit=69
+               ->  Hash  (cost=134.00..134.00 rows=5000 width=8) (actual time=0.966..0.967 rows=5001 loops=1)
+                     Buckets: 8192  Batches: 1  Memory Usage: 260kB
+                     Buffers: shared hit=84
+                     ->  Seq Scan on spiel s  (cost=0.00..134.00 rows=5000 width=8) (actual time=0.006..0.453 rows=5001 loops=1)
+                           Buffers: shared hit=84
+ Planning:
+   Buffers: shared hit=7
+ Planning Time: 0.159 ms
+ Execution Time: 42.732 ms
+
+=================== KOSTEN DES INDEX ===================
+             index             | groesse 
+-------------------------------+---------
+ uq_eintrag_spieler_spiel      | 6256 kB
+ eintrag_pkey                  | 3504 kB
+ ix_eintrag_gespielt_abschluss | 560 kB
+
