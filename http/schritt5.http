@@ -1,0 +1,208 @@
+### =====================================================================
+### GameShelf – Beispielaufrufe Schritt 5 (A5: eigene Liste durchsuchen)
+### Läuft auf jeder Datenbank; jeder Aufruf prüft sein Ergebnis selbst.
+###
+### Testdaten für einen neuen Spieler:
+###   Alpha  GESPIELT     Rating 9
+###   Beta   ABGEBROCHEN  Rating 3
+###   Gamma  GEPLANT      ohne Rating
+###   Delta  GESPIELT     Rating 9   (gleiches Rating wie Alpha -> prüft stabile Sortierung)
+### =====================================================================
+
+@base = http://localhost:8080/api
+
+### Vorbereitung: Genre
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "Liste {{$timestamp}}" }
+
+> {% client.global.set("genreId", response.body.id); %}
+
+### Vorbereitung: Spiel Alpha
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Alpha {{$timestamp}}", "genreId": {{genreId}} }
+
+> {% client.global.set("spielA", response.body.id); %}
+
+### Vorbereitung: Spiel Beta
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Beta {{$timestamp}}", "genreId": {{genreId}} }
+
+> {% client.global.set("spielB", response.body.id); %}
+
+### Vorbereitung: Spiel Gamma
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Gamma {{$timestamp}}", "genreId": {{genreId}} }
+
+> {% client.global.set("spielC", response.body.id); %}
+
+### Vorbereitung: Spiel Delta
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Delta {{$timestamp}}", "genreId": {{genreId}} }
+
+> {% client.global.set("spielD", response.body.id); %}
+
+### Vorbereitung: Spieler
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "liste{{$timestamp}}" }
+
+> {% client.global.set("spielerId", response.body.id); %}
+
+### Eintrag Alpha: GESPIELT 9
+POST {{base}}/spieler/{{spielerId}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielA}}, "status": "GESPIELT", "rating": 9 }
+
+> {% client.test("201", () => client.assert(response.status === 201)); %}
+
+### Eintrag Beta: ABGEBROCHEN 3
+POST {{base}}/spieler/{{spielerId}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielB}}, "status": "ABGEBROCHEN", "rating": 3 }
+
+> {% client.test("201", () => client.assert(response.status === 201)); %}
+
+### Eintrag Gamma: GEPLANT
+POST {{base}}/spieler/{{spielerId}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielC}}, "status": "GEPLANT" }
+
+> {% client.test("201", () => client.assert(response.status === 201)); %}
+
+### Eintrag Delta: GESPIELT 9
+POST {{base}}/spieler/{{spielerId}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielD}}, "status": "GESPIELT", "rating": 9 }
+
+> {% client.test("201", () => client.assert(response.status === 201)); %}
+
+### --- Pagination ---------------------------------------------------------
+
+### Seite 0 mit Grösse 2 -> 2 von 4 Einträgen
+GET {{base}}/spieler/{{spielerId}}/eintraege?groesse=2&seite=0
+
+> {%
+    client.test("Seite 0", () => {
+        client.assert(response.status === 200, "Status " + response.status);
+        client.assert(response.body.totalElemente === 4, "total " + response.body.totalElemente);
+        client.assert(response.body.totalSeiten === 2, "seiten " + response.body.totalSeiten);
+        client.assert(response.body.inhalt.length === 2, "länge " + response.body.inhalt.length);
+    });
+    client.global.set("seite0", response.body.inhalt.map(e => e.eintragId).join(","));
+%}
+
+### Seite 1 -> die anderen 2 Einträge, keine Überschneidung mit Seite 0
+GET {{base}}/spieler/{{spielerId}}/eintraege?groesse=2&seite=1
+
+> {%
+    client.test("Seite 1 ohne Überschneidung", () => {
+        const seite0 = client.global.get("seite0").split(",").map(Number);
+        const ids = response.body.inhalt.map(e => e.eintragId);
+        client.assert(ids.length === 2, "länge " + ids.length);
+        client.assert(ids.every(id => !seite0.includes(id)), "Überschneidung: " + ids + " / " + seite0);
+    });
+%}
+
+### Grösse über dem Maximum wird auf 100 begrenzt
+GET {{base}}/spieler/{{spielerId}}/eintraege?groesse=5000
+
+> {% client.test("Max. 100", () => client.assert(response.body.groesse === 100, "groesse " + response.body.groesse)); %}
+
+### --- Filter -------------------------------------------------------------
+
+### Nur GESPIELT -> 2
+GET {{base}}/spieler/{{spielerId}}/eintraege?status=GESPIELT
+
+> {%
+    client.test("Filter Status", () => {
+        client.assert(response.body.totalElemente === 2, "total " + response.body.totalElemente);
+        client.assert(response.body.inhalt.every(e => e.status === "GESPIELT"));
+    });
+%}
+
+### GESPIELT oder ABGEBROCHEN -> 3
+GET {{base}}/spieler/{{spielerId}}/eintraege?status=GESPIELT&status=ABGEBROCHEN
+
+> {% client.test("Mehrere Status", () => client.assert(response.body.totalElemente === 3, "total " + response.body.totalElemente)); %}
+
+### Rating mindestens 5 -> 2 (beide mit 9)
+GET {{base}}/spieler/{{spielerId}}/eintraege?ratingMin=5
+
+> {%
+    client.test("Filter Rating", () => {
+        client.assert(response.body.totalElemente === 2, "total " + response.body.totalElemente);
+        client.assert(response.body.inhalt.every(e => e.rating >= 5));
+    });
+%}
+
+### Titelteil "gamm" (Gross-/Kleinschreibung egal) -> 1
+GET {{base}}/spieler/{{spielerId}}/eintraege?titel=GAMM
+
+> {%
+    client.test("Filter Titel", () => {
+        client.assert(response.body.totalElemente === 1, "total " + response.body.totalElemente);
+        client.assert(response.body.inhalt[0].spielTitel.startsWith("Gamma"));
+    });
+%}
+
+### Kombination: GESPIELT und Titel "delta" -> 1
+GET {{base}}/spieler/{{spielerId}}/eintraege?status=GESPIELT&titel=delta
+
+> {% client.test("Kombinierter Filter", () => client.assert(response.body.totalElemente === 1, "total " + response.body.totalElemente)); %}
+
+### --- Stabile Sortierung -------------------------------------------------
+
+### Rating absteigend: 9, 9, 3, ohne Rating zuletzt; bei gleichem Rating höhere id zuerst
+GET {{base}}/spieler/{{spielerId}}/eintraege?sortierung=RATING&richtung=DESC
+
+> {%
+    client.test("Sortierung Rating", () => {
+        const r = response.body.inhalt;
+        client.assert(r[0].rating === 9 && r[1].rating === 9, "erste zwei nicht 9");
+        client.assert(r[0].eintragId > r[1].eintragId, "Gleichstand nicht nach id sortiert");
+        client.assert(r[2].rating === 3, "dritter nicht 3");
+        client.assert(r[3].rating === null, "ohne Rating nicht zuletzt");
+    });
+%}
+
+### Titel aufsteigend: Alpha, Beta, Delta, Gamma
+GET {{base}}/spieler/{{spielerId}}/eintraege?sortierung=TITEL&richtung=ASC
+
+> {%
+    client.test("Sortierung Titel", () => {
+        const t = response.body.inhalt.map(e => e.spielTitel.split(" ")[0]);
+        client.assert(t.join(",") === "Alpha,Beta,Delta,Gamma", "Reihenfolge " + t);
+    });
+%}
+
+### --- Fehlerfälle --------------------------------------------------------
+
+### ratingMin > ratingMax -> 400
+GET {{base}}/spieler/{{spielerId}}/eintraege?ratingMin=8&ratingMax=2
+
+> {% client.test("400", () => client.assert(response.status === 400, "Status " + response.status)); %}
+
+### Unbekannte Sortierung -> 400
+GET {{base}}/spieler/{{spielerId}}/eintraege?sortierung=PREIS
+
+> {% client.test("400", () => client.assert(response.status === 400, "Status " + response.status)); %}
+
+### Unbekannter Spieler -> 404
+GET {{base}}/spieler/999999999/eintraege
+
+> {% client.test("404", () => client.assert(response.status === 404, "Status " + response.status)); %}

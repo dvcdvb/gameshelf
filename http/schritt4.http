@@ -1,0 +1,181 @@
+### =====================================================================
+### GameShelf – Beispielaufrufe Schritt 4 (A4: Status wechseln mit Verlauf)
+###
+### Läuft auf jeder Datenbank (auch nicht leer): Namen enthalten einen Zeitstempel,
+### IDs und Versionen werden aus den Antworten übernommen.
+### Jeder Aufruf prüft seinen erwarteten HTTP-Status selbst (client.test),
+### ein falscher Code wird in IntelliJ ROT angezeigt.
+### =====================================================================
+
+@base = http://localhost:8080/api
+
+### Vorbereitung: Genre
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "Roguelike {{$timestamp}}" }
+
+> {%
+    client.test("Genre angelegt (201)", () => client.assert(response.status === 201, "Status " + response.status));
+    client.global.set("genreId", response.body.id);
+%}
+
+### Vorbereitung: Spiel
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Dead Cells {{$timestamp}}", "genreId": {{genreId}}, "erscheinungsjahr": 2018 }
+
+> {%
+    client.test("Spiel angelegt (201)", () => client.assert(response.status === 201, "Status " + response.status));
+    client.global.set("spielId", response.body.id);
+%}
+
+### Vorbereitung: Spieler
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "tester{{$timestamp}}" }
+
+> {%
+    client.test("Spieler angelegt (201)", () => client.assert(response.status === 201, "Status " + response.status));
+    client.global.set("spielerId", response.body.id);
+%}
+
+### Eintrag als GEPLANT aufnehmen
+POST {{base}}/spieler/{{spielerId}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{spielId}}, "status": "GEPLANT" }
+
+> {%
+    client.test("Eintrag angelegt (201)", () => client.assert(response.status === 201, "Status " + response.status));
+    client.global.set("eintragId", response.body.id);
+    client.global.set("version", response.body.version);
+%}
+
+### GEPLANT -> AM_SPIELEN: Startdatum wird automatisch gesetzt
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "AM_SPIELEN", "version": {{version}} }
+
+> {%
+    client.test("Status AM_SPIELEN (200)", () => client.assert(response.status === 200, "Status " + response.status));
+    client.test("Startdatum gesetzt", () => client.assert(response.body.gestartetAm !== null));
+    client.global.set("alteVersion", client.global.get("version"));
+    client.global.set("version", response.body.version);
+%}
+
+### AM_SPIELEN -> GESPIELT ohne Rating -> 400
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "GESPIELT", "version": {{version}} }
+
+> {%
+    client.test("Rating fehlt (400)", () => client.assert(response.status === 400, "Status " + response.status));
+%}
+
+### AM_SPIELEN -> GESPIELT mit Rating 8 -> 200, Abschlussdatum = heute
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "GESPIELT", "rating": 8, "version": {{version}} }
+
+> {%
+    client.test("Status GESPIELT (200)", () => client.assert(response.status === 200, "Status " + response.status));
+    client.test("Abschlussdatum gesetzt", () => client.assert(response.body.abgeschlossenAm !== null));
+    client.global.set("version", response.body.version);
+%}
+
+### Statistik: 1 Bewertung, Durchschnitt 8.0
+GET {{base}}/spiele/{{spielId}}
+
+> {%
+    client.test("Statistik nach Abschluss", () => {
+        client.assert(response.body.anzahlBewertungen === 1, "anzahl " + response.body.anzahlBewertungen);
+        client.assert(response.body.durchschnittsRating === 8.0, "schnitt " + response.body.durchschnittsRating);
+    });
+%}
+
+### Gleicher Status nochmals -> 400
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "GESPIELT", "version": {{version}} }
+
+> {%
+    client.test("Gleicher Status (400)", () => client.assert(response.status === 400, "Status " + response.status));
+%}
+
+### Veraltete Version (zweites Gerät) -> 409
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "ABGEBROCHEN", "version": {{alteVersion}} }
+
+> {%
+    client.test("Veraltete Version (409)", () => client.assert(response.status === 409, "Status " + response.status));
+%}
+
+### GESPIELT -> ABGEBROCHEN mit neuem Rating 4: Statistik zählt weiter 1 Bewertung, Durchschnitt 4.0
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "ABGEBROCHEN", "rating": 4, "version": {{version}} }
+
+> {%
+    client.test("Status ABGEBROCHEN (200)", () => client.assert(response.status === 200, "Status " + response.status));
+    client.global.set("version", response.body.version);
+%}
+
+### Statistik: weiterhin 1 Bewertung, Durchschnitt 4.0
+GET {{base}}/spiele/{{spielId}}
+
+> {%
+    client.test("Statistik nach Rating-Änderung", () => {
+        client.assert(response.body.anzahlBewertungen === 1, "anzahl " + response.body.anzahlBewertungen);
+        client.assert(response.body.durchschnittsRating === 4.0, "schnitt " + response.body.durchschnittsRating);
+    });
+%}
+
+### ABGEBROCHEN -> AM_SPIELEN (nochmals versuchen): Abschlussdatum wird entfernt, Bewertung zählt nicht mehr
+POST {{base}}/eintraege/{{eintragId}}/status
+Content-Type: application/json
+
+{ "status": "AM_SPIELEN", "version": {{version}} }
+
+> {%
+    client.test("Zurück zu AM_SPIELEN (200)", () => client.assert(response.status === 200, "Status " + response.status));
+    client.test("Abschlussdatum entfernt", () => client.assert(response.body.abgeschlossenAm === null));
+%}
+
+### Statistik: 0 Bewertungen
+GET {{base}}/spiele/{{spielId}}
+
+> {%
+    client.test("Statistik zurückgesetzt", () => {
+        client.assert(response.body.anzahlBewertungen === 0, "anzahl " + response.body.anzahlBewertungen);
+        client.assert(response.body.durchschnittsRating === null, "schnitt " + response.body.durchschnittsRating);
+    });
+%}
+
+### Verlauf: 5 Einträge (null->GEPLANT, ->AM_SPIELEN, ->GESPIELT, ->ABGEBROCHEN, ->AM_SPIELEN)
+GET {{base}}/eintraege/{{eintragId}}/verlauf
+
+> {%
+    client.test("Verlauf vollständig", () => {
+        client.assert(response.status === 200, "Status " + response.status);
+        client.assert(response.body.length === 5, "Anzahl " + response.body.length);
+        client.assert(response.body[0].alterStatus === null);
+        client.assert(response.body[4].neuerStatus === "AM_SPIELEN");
+    });
+%}
+
+### Verlauf eines unbekannten Eintrags -> 404
+GET {{base}}/eintraege/999999999/verlauf
+
+> {%
+    client.test("Unbekannter Eintrag (404)", () => client.assert(response.status === 404, "Status " + response.status));
+%}

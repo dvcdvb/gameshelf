@@ -1,0 +1,218 @@
+### =====================================================================
+### GameShelf – Beispielaufrufe Schritt 6 (A7: Auswertungen)
+### Läuft auf jeder Datenbank; Assertions prüfen nur die hier angelegten Daten.
+###
+### Testdaten mit bekannten Ergebnissen:
+###   Genre G1: Spiel A, Spiel B      Genre G2: Spiel C, Spiel D
+###   Spieler P1: A GESPIELT 8 (40h, 2026-01-15)   B ABGEBROCHEN 2 (5h, 2026-01-20)
+###               C GEPLANT                        D GESPIELT 6 (10h, 2026-03-05)
+###   Spieler P2: A GESPIELT 10 (30h, 2026-02-01)  C AM_SPIELEN
+###
+### Erwartet:
+###   Top G1:       A (2 Bewertungen, 9.00), B (1, 2.00)
+###   Abbruch G1:   2 Spiele, 3 beendet, 1 abgebrochen, 33.3 %
+###   Statistik P1: 4 Einträge, Ø 5.33, 55.0 h; GESPIELT: 2, Ø 7.00, 50.0 h
+###   Monate P1:    2026-01: 1 (40.0 h), 2026-03: 1 (10.0 h)
+### =====================================================================
+
+@base = http://localhost:8080/api
+
+### Vorbereitung: Genre G1
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "G1 {{$timestamp}}" }
+
+> {% client.global.set("g1", response.body.id); %}
+
+### Vorbereitung: Genre G2
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "G2 {{$timestamp}}" }
+
+> {% client.global.set("g2", response.body.id); %}
+
+### Spiel A (G1)
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Auswertung A {{$timestamp}}", "genreId": {{g1}} }
+
+> {% client.global.set("a", response.body.id); %}
+
+### Spiel B (G1)
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Auswertung B {{$timestamp}}", "genreId": {{g1}} }
+
+> {% client.global.set("b", response.body.id); %}
+
+### Spiel C (G2)
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Auswertung C {{$timestamp}}", "genreId": {{g2}} }
+
+> {% client.global.set("c", response.body.id); %}
+
+### Spiel D (G2)
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Auswertung D {{$timestamp}}", "genreId": {{g2}} }
+
+> {% client.global.set("d", response.body.id); %}
+
+### Spieler P1
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "p1-{{$timestamp}}" }
+
+> {% client.global.set("p1", response.body.id); %}
+
+### Spieler P2
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "p2-{{$timestamp}}" }
+
+> {% client.global.set("p2", response.body.id); %}
+
+### P1: A GESPIELT 8
+POST {{base}}/spieler/{{p1}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{a}}, "status": "GESPIELT", "rating": 8, "spielzeitStd": 40, "abgeschlossenAm": "2026-01-15" }
+
+> {% client.test("201", () => client.assert(response.status === 201, "Status " + response.status)); %}
+
+### P1: B ABGEBROCHEN 2
+POST {{base}}/spieler/{{p1}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{b}}, "status": "ABGEBROCHEN", "rating": 2, "spielzeitStd": 5, "abgeschlossenAm": "2026-01-20" }
+
+> {% client.test("201", () => client.assert(response.status === 201, "Status " + response.status)); %}
+
+### P1: C GEPLANT
+POST {{base}}/spieler/{{p1}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{c}}, "status": "GEPLANT" }
+
+> {% client.test("201", () => client.assert(response.status === 201, "Status " + response.status)); %}
+
+### P1: D GESPIELT 6
+POST {{base}}/spieler/{{p1}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{d}}, "status": "GESPIELT", "rating": 6, "spielzeitStd": 10, "abgeschlossenAm": "2026-03-05" }
+
+> {% client.test("201", () => client.assert(response.status === 201, "Status " + response.status)); %}
+
+### P2: A GESPIELT 10
+POST {{base}}/spieler/{{p2}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{a}}, "status": "GESPIELT", "rating": 10, "spielzeitStd": 30, "abgeschlossenAm": "2026-02-01" }
+
+> {% client.test("201", () => client.assert(response.status === 201, "Status " + response.status)); %}
+
+### P2: C AM_SPIELEN
+POST {{base}}/spieler/{{p2}}/eintraege
+Content-Type: application/json
+
+{ "spielId": {{c}}, "status": "AM_SPIELEN" }
+
+> {% client.test("201", () => client.assert(response.status === 201, "Status " + response.status)); %}
+
+### --- Auswertung 1: Top-Spiele -------------------------------------------
+
+### Top-Spiele in G1
+GET {{base}}/auswertungen/top-spiele?genreId={{g1}}
+
+> {%
+    client.test("Top G1", () => {
+        const r = response.body;
+        client.assert(r.length === 2, "Anzahl " + r.length);
+        client.assert(r[0].spielId == client.global.get("a"), "Platz 1 nicht A");
+        client.assert(r[0].anzahlBewertungen === 2 && r[0].durchschnittsRating === 9, "A: " + JSON.stringify(r[0]));
+        client.assert(r[1].anzahlBewertungen === 1 && r[1].durchschnittsRating === 2, "B: " + JSON.stringify(r[1]));
+    });
+%}
+
+### Top-Spiele in G1 mit mindestens 2 Bewertungen -> nur A
+GET {{base}}/auswertungen/top-spiele?genreId={{g1}}&minBewertungen=2
+
+> {% client.test("Mindestanzahl", () => client.assert(response.body.length === 1, "Anzahl " + response.body.length)); %}
+
+### Top-Spiele über alle Genres (Übersicht)
+GET {{base}}/auswertungen/top-spiele?limit=5
+
+> {% client.test("200", () => client.assert(response.status === 200)); %}
+
+### --- Auswertung 2: Abbruchquote je Genre --------------------------------
+
+### Abbruchquote: G1 = 2 Spiele, 3 beendet, 1 abgebrochen, 33.3 %
+GET {{base}}/auswertungen/abbruchquote-genres
+
+> {%
+    client.test("Abbruch G1", () => {
+        const g = response.body.find(x => x.genreId == client.global.get("g1"));
+        client.assert(g !== undefined, "G1 fehlt");
+        client.assert(g.anzahlSpiele === 2, "Spiele " + g.anzahlSpiele);
+        client.assert(g.anzahlBeendet === 3, "beendet " + g.anzahlBeendet);
+        client.assert(g.anzahlAbgebrochen === 1, "abgebrochen " + g.anzahlAbgebrochen);
+        client.assert(g.abbruchquoteProzent === 33.3, "Quote " + g.abbruchquoteProzent);
+    });
+    client.test("Abbruch G2", () => {
+        const g = response.body.find(x => x.genreId == client.global.get("g2"));
+        client.assert(g.anzahlSpiele === 1 && g.anzahlBeendet === 1 && g.abbruchquoteProzent === 0, JSON.stringify(g));
+    });
+%}
+
+### --- Auswertung 3: Spielerstatistik -------------------------------------
+
+### Statistik P1
+GET {{base}}/auswertungen/spieler/{{p1}}/statistik
+
+> {%
+    client.test("Gesamt P1", () => {
+        const g = response.body.gesamt;
+        client.assert(g.anzahl === 4, "anzahl " + g.anzahl);
+        client.assert(g.durchschnittsRating === 5.33, "Ø " + g.durchschnittsRating);
+        client.assert(g.spielzeitStd === 55, "Spielzeit " + g.spielzeitStd);
+    });
+    client.test("GESPIELT P1", () => {
+        const s = response.body.proStatus.find(x => x.status === "GESPIELT");
+        client.assert(s.anzahl === 2 && s.durchschnittsRating === 7 && s.spielzeitStd === 50, JSON.stringify(s));
+    });
+    client.test("3 Status vorhanden", () => client.assert(response.body.proStatus.length === 3));
+%}
+
+### Statistik unbekannter Spieler -> 404
+GET {{base}}/auswertungen/spieler/999999999/statistik
+
+> {% client.test("404", () => client.assert(response.status === 404, "Status " + response.status)); %}
+
+### --- Auswertung 4: Abschlüsse pro Monat ---------------------------------
+
+### Abschlüsse P1 im Jahr 2026: Januar 1 (40.0 h), März 1 (10.0 h); abgebrochenes B zählt nicht
+GET {{base}}/auswertungen/abschluesse-pro-monat?von=2026-01-01&bis=2026-12-31&spielerId={{p1}}
+
+> {%
+    client.test("Monate P1", () => {
+        const r = response.body;
+        client.assert(r.length === 2, "Anzahl Monate " + r.length);
+        client.assert(r[0].monat === "2026-01-01" && r[0].anzahl === 1 && r[0].durchschnittSpielzeitStd === 40, JSON.stringify(r[0]));
+        client.assert(r[1].monat === "2026-03-01" && r[1].anzahl === 1 && r[1].durchschnittSpielzeitStd === 10, JSON.stringify(r[1]));
+    });
+%}
+
+### 'von' nach 'bis' -> 400
+GET {{base}}/auswertungen/abschluesse-pro-monat?von=2026-12-01&bis=2026-01-01
+
+> {% client.test("400", () => client.assert(response.status === 400, "Status " + response.status)); %}

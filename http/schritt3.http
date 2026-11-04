@@ -1,0 +1,165 @@
+### =====================================================================
+### GameShelf – Beispielaufrufe Schritt 3 (A1–A3)
+### Ausführen in IntelliJ (grüner Pfeil) oder VS Code (Extension "REST Client").
+### Auf einer frischen Datenbank in dieser Reihenfolge ausführen.
+### =====================================================================
+
+@base = http://localhost:8080/api
+
+### --- A1: Genre und Spiele erfassen --------------------------------------
+
+### Genre anlegen -> 201
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "RPG" }
+
+### Genre doppelt -> 409
+POST {{base}}/genres
+Content-Type: application/json
+
+{ "name": "rpg" }
+
+### Alle Genres
+GET {{base}}/genres
+
+### Spiel anlegen -> 201
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "The Witcher 3", "genreId": 1, "erscheinungsjahr": 2015 }
+
+### Zweites Spiel
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Elden Ring", "genreId": 1, "erscheinungsjahr": 2022 }
+
+### Drittes Spiel (wird für den Regel-Test in A2 gebraucht)
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "Hades", "genreId": 1, "erscheinungsjahr": 2020 }
+
+### Titel doppelt (andere Schreibweise) -> 409
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "the witcher 3", "genreId": 1 }
+
+### Ungültige Eingabe (leerer Titel, Jahr zu klein) -> 400 mit Feldliste
+POST {{base}}/spiele
+Content-Type: application/json
+
+{ "titel": "", "genreId": 1, "erscheinungsjahr": 1800 }
+
+### Titelsuche, seitenweise
+GET {{base}}/spiele?titel=ring&seite=0&groesse=10
+
+### Spiel ändern
+PUT {{base}}/spiele/2
+Content-Type: application/json
+
+{ "titel": "Elden Ring", "genreId": 1, "erscheinungsjahr": 2022 }
+
+### --- Spieler -----------------------------------------------------------
+
+### Spieler anlegen -> 201
+POST {{base}}/spieler
+Content-Type: application/json
+
+{ "benutzername": "fabio" }
+
+### Spieler laden
+GET {{base}}/spieler/1
+
+### --- A2: Spiel in Liste aufnehmen ---------------------------------------
+
+### Geplant, ohne Rating -> 201
+POST {{base}}/spieler/1/eintraege
+Content-Type: application/json
+
+{ "spielId": 2, "status": "GEPLANT" }
+
+### Gespielt mit Rating -> 201, Statistik von Spiel 1 steigt
+POST {{base}}/spieler/1/eintraege
+Content-Type: application/json
+
+{
+  "spielId": 1,
+  "status": "GESPIELT",
+  "rating": 9,
+  "bewertungstext": "Grossartige Geschichte",
+  "spielzeitStd": 120.5,
+  "gestartetAm": "2026-01-10",
+  "abgeschlossenAm": "2026-03-02"
+}
+
+### Statistik prüfen: anzahlBewertungen = 1, durchschnittsRating = 9.0
+GET {{base}}/spiele/1
+
+### Doppelt aufnehmen -> 409
+POST {{base}}/spieler/1/eintraege
+Content-Type: application/json
+
+{ "spielId": 1, "status": "GEPLANT" }
+
+### Gespielt ohne Rating -> 400 (Geschäftsregel)
+### (Spiel 3, weil Spiel 2 schon in der Liste ist und sonst zuerst die Duplikatprüfung greift)
+POST {{base}}/spieler/1/eintraege
+Content-Type: application/json
+
+{ "spielId": 3, "status": "GESPIELT" }
+
+### Unbekannter Status -> 400
+POST {{base}}/spieler/1/eintraege
+Content-Type: application/json
+
+{ "spielId": 2, "status": "FERTIG" }
+
+### --- A3: Eintrag ändern und löschen -------------------------------------
+
+### Eintrag laden (version merken)
+GET {{base}}/eintraege/2
+
+### Rating ändern -> 200, version steigt, Durchschnitt wird 7.0
+PUT {{base}}/eintraege/2
+Content-Type: application/json
+
+{
+  "rating": 7,
+  "bewertungstext": "Beim zweiten Mal etwas langatmig",
+  "spielzeitStd": 120.5,
+  "gestartetAm": "2026-01-10",
+  "abgeschlossenAm": "2026-03-02",
+  "version": 0
+}
+
+### Gleicher Request nochmals mit alter version -> 409
+PUT {{base}}/eintraege/2
+Content-Type: application/json
+
+{ "rating": 8, "version": 0 }
+
+### Abschluss vor Start -> 400
+PUT {{base}}/eintraege/2
+Content-Type: application/json
+
+{ "rating": 7, "gestartetAm": "2026-05-01", "abgeschlossenAm": "2026-04-01", "version": 1 }
+
+### Eintrag löschen -> 204, Statistik von Spiel 1 wieder 0
+DELETE {{base}}/eintraege/2
+
+### Kontrolle
+GET {{base}}/spiele/1
+
+### --- A1: Deaktivieren --------------------------------------------------
+
+### Spiel deaktivieren
+POST {{base}}/spiele/1/deaktivieren
+
+### Deaktiviertes Spiel aufnehmen -> 400
+POST {{base}}/spieler/1/eintraege
+Content-Type: application/json
+
+{ "spielId": 1, "status": "GEPLANT" }
