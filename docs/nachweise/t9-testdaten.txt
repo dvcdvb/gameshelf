@@ -1,0 +1,92 @@
+Timing is on.
+SET
+Time: 0.089 ms
+BEGIN
+Time: 0.122 ms
+TRUNCATE TABLE
+Time: 5.458 ms
+ setseed 
+---------
+ 
+(1 row)
+
+Time: 0.383 ms
+INSERT 0 12
+Time: 0.714 ms
+INSERT 0 5000
+Time: 62.152 ms
+INSERT 0 2000
+Time: 5.093 ms
+SELECT 165000
+Time: 59.831 ms
+SELECT 165000
+Time: 109.441 ms
+INSERT 0 158555
+Time: 4829.031 ms (00:04.829)
+INSERT 0 158555
+Time: 1742.612 ms (00:01.743)
+INSERT 0 95061
+Time: 1081.409 ms (00:01.081)
+UPDATE 5000
+Time: 101.789 ms
+COMMIT
+Time: 11.564 ms
+ANALYZE
+Time: 151.835 ms
+
+=== Datensätze pro Tabelle ===
+    tabelle    | count  
+---------------+--------
+ genre         |     12
+ spiel         |   5000
+ spieler       |   2000
+ eintrag       | 158555
+ statuswechsel | 253616
+(5 rows)
+
+Time: 14.837 ms
+=== Verteilung nach Status ===
+   status    | anzahl | prozent 
+-------------+--------+---------
+ GESPIELT    |  72013 |    45.4
+ GEPLANT     |  47653 |    30.1
+ ABGEBROCHEN |  23048 |    14.5
+ AM_SPIELEN  |  15841 |    10.0
+(4 rows)
+
+Time: 16.826 ms
+=== Einträge pro Spieler (Min / Median / Max) ===
+ min | median | max  
+-----+--------+------
+  36 |     67 | 1047
+(1 row)
+
+Time: 16.276 ms
+=== Einträge pro Spiel (Min / Median / Max) ===
+ min | median | max  
+-----+--------+------
+   5 |     22 | 1550
+(1 row)
+
+Time: 15.818 ms
+=== Abschlüsse pro Jahr ===
+ jahr | count 
+------+-------
+ 2019 |  3119
+ 2020 |  6580
+ 2021 |  9534
+ 2022 | 11830
+ 2023 | 14072
+ 2024 | 16010
+ 2025 | 18168
+ 2026 | 15748
+(8 rows)
+
+Time: 23.789 ms
+=== Prüfsumme (muss bei jedem Lauf gleich sein) ===
+            pruefsumme            
+----------------------------------
+ 685941f9624d964f1e471089d8556896
+(1 row)
+
+Time: 48.359 ms
