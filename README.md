@@ -2,8 +2,6 @@
 
 Projektarbeit **Database Development** · HFTM · Fabio Palma
 
-> **Abgabestand:** Git-Tag `v1.0-abgabe` *(vor der Abgabe setzen: `git tag v1.0-abgabe && git push --tags`)*
-
 ---
 
 ## Inhalt
@@ -16,8 +14,6 @@ Projektarbeit **Database Development** · HFTM · Fabio Palma
 6. [Nachweise](#6-nachweise)
 7. [Einschränkungen](#7-einschränkungen)
 8. [KI und Hilfsmittel](#8-ki-und-hilfsmittel)
-
-> Projektskizze: `docs/projektskizze.pdf` *(vor der Abgabe ablegen und hier verlinken)*
 
 ---
 
@@ -335,7 +331,6 @@ Für diese Arbeit wurde KI unterstützend eingesetzt, gemäss *HFTM-KI-Richtlini
 |---|---|
 | Eigenständigkeitserklärung inkl. Erklärung des KI-Einsatzes | [`docs/eigenstaendigkeitserklaerung.md`](docs/eigenstaendigkeitserklaerung.md) |
 | Hilfsmittelverzeichnis (Werkzeug, Zweck, betroffene Dateien, Version/Datum) | [`docs/hilfsmittelverzeichnis.md`](docs/hilfsmittelverzeichnis.md) |
-| Prompt-Verzeichnis (Ziel, Prompt, Nutzung, eigene Bearbeitung, Stelle) | [`docs/prompt-verzeichnis.md`](docs/prompt-verzeichnis.md) |
 | Kennzeichnung KI-Einsatz je Stelle/Datei, Herkunftsangaben | [`docs/ki-einsatz.md`](docs/ki-einsatz.md) |
 
 Übernommene technische Grundstrukturen aus dem Unterricht sind an den betroffenen Stellen mit Herkunftsangabe gekennzeichnet.
