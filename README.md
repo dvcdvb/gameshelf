@@ -144,7 +144,8 @@ Mit sichtbarem SQL (für die Nachweise T7/T11):
 
 ### API ausprobieren
 
-Die Beispielaufrufe liegen unter [`http/`](http/) und laufen in IntelliJ (grüner Pfeil) oder VS Code (Extension *REST Client*). Ab `schritt4.http` prüft jeder Aufruf sein Ergebnis selbst (`client.test`) und läuft auf jeder Datenbank.
+
+Für die reproduzierbaren Nachweise (Pagination, Filter, bekannte Ergebnisse) liegen die Beispielaufrufe zusätzlich unter [`http/`](http/) und laufen in IntelliJ (grüner Pfeil) oder VS Code (Extension *REST Client*). Ab `schritt4.http` prüft jeder Aufruf sein Ergebnis selbst (`client.test`) und läuft auf jeder Datenbank.
 
 | Datei | Inhalt |
 |---|---|
